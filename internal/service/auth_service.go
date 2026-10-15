@@ -110,7 +110,6 @@ func (s *AuthService) generateToken(u *models.Usuario) (string, error) {
 		Email:  u.Email,
 		Nivel:  u.Nivel,
 		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
 		},
 	}
