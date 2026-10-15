@@ -19,10 +19,6 @@ const ICONES_SVG = {
     tamanho: 20,
     corpo: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   },
-  dollar: {
-    tamanho: 20,
-    corpo: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
-  },
   menu: {
     tamanho: 20,
     corpo: '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
@@ -58,7 +54,7 @@ function svgIcon(nome, tamanho) {
   const icone = ICONES_SVG[nome];
   if (!icone) return '';
 
-  const t = Number(tamanho) || icone.tamanho;
+  const t = (Number(tamanho) || icone.tamanho) * 1.1;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icone.corpo}</svg>`;
 }
 
@@ -102,7 +98,7 @@ function montarLayout() {
 
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-gray-100 bg-white transition-transform duration-200 lg:translate-x-0">
       <div class="flex h-16 items-center gap-2 border-b border-gray-100 px-5">
-        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">${svgIcon('dollar')}</span>
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg"><span class="material-symbols-outlined text-green-600" aria-hidden="true">payments</span></span>
         <span class="flex-1 text-base font-semibold text-slate-800">Registro de Despesas</span>
         <button id="btn-fechar-menu" type="button" aria-label="Fechar menu" class="rounded-lg p-1 text-slate-500 hover:bg-slate-100 lg:hidden">${svgIcon('x')}</button>
       </div>

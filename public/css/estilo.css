@@ -1,5 +1,22 @@
 /* Componentes compartilhados pelas páginas. Utilitários do Tailwind sobrescrevem estas regras quando combinados. */
 
+/* O CSS do Google Fonts só traz o @font-face; a classe precisa ser declarada aqui. */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 26.4px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'liga';
+}
+
 .rotulo {
   display: block;
   margin-bottom: 0.25rem;

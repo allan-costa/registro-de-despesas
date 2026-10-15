@@ -9,8 +9,8 @@ import (
 
 const csp = "default-src 'self'; " +
 	"script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
-	"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
-	"img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+	"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
+	"img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'"
 
 func SecurityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
