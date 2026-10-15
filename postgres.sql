@@ -3,12 +3,12 @@ CREATE SCHEMA comum AUTHORIZATION postgres;
 
 -- Criar tipos ENUM
 DO $$ BEGIN 
-    	CREATE TYPE nivel_usuario AS ENUM ('ADMIN', 'READ');
+    	CREATE TYPE comum.nivel_usuario AS ENUM ('ADMIN', 'READ');
 	EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    	CREATE TYPE tipo_despesa AS ENUM ('PADRAO', 'EVENTUAL', 'RECORRENTE', 'PARCELAMENTO');
+    	CREATE TYPE comum.tipo_despesa AS ENUM ('PADRAO', 'EVENTUAL', 'RECORRENTE', 'PARCELAMENTO');
 	EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS comum.usuario (
     nome        VARCHAR NOT NULL,
     email       VARCHAR NOT NULL UNIQUE,
     senha       VARCHAR NOT NULL,
-    nivel       nivel_usuario NOT NULL default 'READ',
+    nivel       comum.nivel_usuario NOT NULL default 'READ',
     created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -35,7 +35,7 @@ CONSTRAINT fk_categoria_parent FOREIGN KEY (parent_id) REFERENCES comum.categori
 CREATE TABLE IF NOT EXISTS comum.despesa (
     id              	SERIAL PRIMARY KEY,
     id_categoria    	INT4 NOT null references comum.categoria(id),
-    tipo		tipo_despesa not null default 'PADRAO',
+    tipo		comum.tipo_despesa not null default 'PADRAO',
     descricao       	VARCHAR NOT NULL,
     valor	    		DECIMAL(12,2) NOT NULL,
     data		TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

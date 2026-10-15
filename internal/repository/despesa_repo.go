@@ -158,7 +158,7 @@ func (f DespesaFiltro) where() (string, []any) {
 			) SELECT id FROM sub)`, f.CategoriaID)
 	}
 	if f.Tipo != "" {
-		add("d.tipo = ?::tipo_despesa", f.Tipo)
+		add("d.tipo = ?::comum.tipo_despesa", f.Tipo)
 	}
 
 	if len(conds) == 0 {
