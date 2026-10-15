@@ -19,6 +19,49 @@ func NewDespesaHandler(svc *service.DespesaService) *DespesaHandler {
 	return &DespesaHandler{svc: svc}
 }
 
+// Listar devolve a página de despesas do filtro (datas, categoria e tipo) com os totais.
+func (h *DespesaHandler) Listar(c *gin.Context) {
+	var q models.DespesaFiltroRequest
+	if err := c.ShouldBindQuery(&q); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "parâmetros de consulta inválidos"})
+		return
+	}
+
+	resp, err := h.svc.Listar(c.Request.Context(), q)
+	if h.filtroInvalido(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// Graficos devolve o total por categoria no período, em labels e valores.
+func (h *DespesaHandler) Graficos(c *gin.Context) {
+	var q models.DespesaFiltroRequest
+	if err := c.ShouldBindQuery(&q); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "parâmetros de consulta inválidos"})
+		return
+	}
+
+	resp, err := h.svc.Graficos(c.Request.Context(), q)
+	if h.filtroInvalido(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// filtroInvalido responde ao erro (400 para filtro inválido, 500 para o resto) e informa se havia erro.
+func (h *DespesaHandler) filtroInvalido(c *gin.Context, err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, service.ErrFiltroDataInvalida), errors.Is(err, service.ErrPeriodoInvalido):
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+	default:
+		internalError(c, err)
+	}
+	return true
+}
+
 // Salvar cria (201, lista das despesas geradas) ou, com id no corpo, edita descrição e valor (200).
 func (h *DespesaHandler) Salvar(c *gin.Context) {
 	var req models.DespesaRequest

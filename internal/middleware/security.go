@@ -19,8 +19,14 @@ func SecurityHeaders() gin.HandlerFunc {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Content-Security-Policy", csp)
-		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+		switch path := c.Request.URL.Path; {
+		case strings.HasPrefix(path, "/api/"):
 			h.Set("Cache-Control", "no-store")
+		case path == "/" || strings.HasSuffix(path, ".html"):
+			// Sem isso o navegador reaproveita por heurística uma página antiga após uma atualização.
+			h.Set("Cache-Control", "no-cache")
+		default:
+			h.Set("Cache-Control", "public, max-age=60")
 		}
 		c.Next()
 	}

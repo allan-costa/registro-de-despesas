@@ -112,6 +112,16 @@ type DespesaRequest struct {
 	TotalParcelas int     `json:"total_parcelas"`
 }
 
+// DespesaFiltroRequest são os parâmetros de GET /api/despesas e /api/despesas/graficos (datas YYYY-MM-DD, inclusivas).
+type DespesaFiltroRequest struct {
+	DataInicial string `form:"data_inicial"`
+	DataFinal   string `form:"data_final"`
+	CategoriaID int    `form:"categoria_id"`
+	Tipo        string `form:"tipo" binding:"omitempty,oneof=PADRAO EVENTUAL RECORRENTE PARCELAMENTO"`
+	Pagina      int    `form:"pagina"`
+	PorPagina   int    `form:"por_pagina"`
+}
+
 type DespesaListResponse struct {
 	Data           []Despesa `json:"data"`
 	Pagina         int       `json:"pagina"`

@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Despesas · Registro de Despesas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="app">
+    <div class="mb-6 flex items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-slate-800">Despesas</h1>
+        <p class="mt-1 text-sm text-slate-500">Consulte e lance despesas, recorrências e parcelamentos.</p>
+      </div>
+      <button id="btn-incluir" type="button" class="somente-admin botao botao-primario">+ Incluir</button>
+    </div>
+
+    <form id="form-filtros" class="mb-6 grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+      <div>
+        <label for="f-inicial" class="rotulo">Data inicial</label>
+        <input id="f-inicial" type="date" class="campo-input">
+      </div>
+      <div>
+        <label for="f-final" class="rotulo">Data final</label>
+        <input id="f-final" type="date" class="campo-input">
+      </div>
+      <div>
+        <label for="f-categoria" class="rotulo">Categoria</label>
+        <select id="f-categoria" class="campo-input"></select>
+      </div>
+      <div>
+        <label for="f-tipo" class="rotulo">Tipo</label>
+        <select id="f-tipo" class="campo-input">
+          <option value="">Todos</option>
+          <option value="PADRAO">Padrão</option>
+          <option value="EVENTUAL">Eventual</option>
+          <option value="RECORRENTE">Recorrente</option>
+          <option value="PARCELAMENTO">Parcelamento</option>
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="botao botao-primario flex-1">Filtrar</button>
+        <button id="btn-limpar" type="button" class="botao botao-secundario">Limpar</button>
+      </div>
+    </form>
+
+    <section class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Tipo</th>
+              <th class="num">Valor</th>
+              <th class="somente-admin"><span class="sr-only">Ações</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-despesas"></tbody>
+        </table>
+      </div>
+      <p id="totais" class="border-t border-gray-100 px-4 py-3 text-sm text-slate-600"></p>
+      <div id="paginacao" class="flex flex-col items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row"></div>
+    </section>
+
+    <div id="modal-despesa" data-modal role="dialog" aria-modal="true" aria-labelledby="titulo-modal-despesa"
+         class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
+      <div class="animar-aparecer w-full max-w-lg rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 id="titulo-modal-despesa" class="text-lg font-semibold text-slate-800">Nova despesa</h2>
+        <p id="aviso-edicao" class="mt-1 hidden text-xs text-slate-500">Na edição só a descrição e o valor podem ser alterados.</p>
+
+        <form id="form-despesa" class="mt-4 grid gap-4 sm:grid-cols-2" novalidate>
+          <div data-campo class="sm:col-span-2">
+            <label for="categoria_id" class="rotulo">Categoria</label>
+            <select id="categoria_id" class="campo-input"></select>
+          </div>
+          <div data-campo>
+            <label for="tipo" class="rotulo">Tipo</label>
+            <select id="tipo" class="campo-input">
+              <option value="PADRAO">Padrão</option>
+              <option value="EVENTUAL">Eventual</option>
+              <option value="RECORRENTE">Recorrente</option>
+              <option value="PARCELAMENTO">Parcelamento</option>
+            </select>
+          </div>
+          <div data-campo>
+            <label for="data" class="rotulo">Data</label>
+            <input id="data" type="date" class="campo-input">
+          </div>
+          <div data-campo class="sm:col-span-2">
+            <label for="descricao" class="rotulo">Descrição</label>
+            <input id="descricao" type="text" class="campo-input" maxlength="200" autocomplete="off">
+          </div>
+          <div data-campo>
+            <label for="valor" class="rotulo">Valor (R$)</label>
+            <input id="valor" type="text" inputmode="numeric" class="campo-input" placeholder="0,00" autocomplete="off">
+          </div>
+          <div data-campo>
+            <label for="total_parcelas" class="rotulo">Número de parcelas</label>
+            <input id="total_parcelas" type="number" class="campo-input" inputmode="numeric">
+          </div>
+
+          <p id="erro-despesa" role="alert" class="sm:col-span-2 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+
+          <div class="flex justify-end gap-2 sm:col-span-2">
+            <button type="button" class="botao botao-secundario" data-fechar-modal>Cancelar</button>
+            <button id="btn-salvar" type="submit" class="botao botao-primario">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const POR_PAGINA = 10;
+      const $ = (id) => document.getElementById(id);
+
+      let pagina = 1;
+      let arvore = [];
+      let editandoId = null;
+      const atualizarCamposDinamicos = configurarCamposDinamicosDespesas();
+
+      function aplicarFiltrosPadrao() {
+        const periodo = periodoPadrao();
+        $('f-inicial').value = periodo.inicial;
+        $('f-final').value = periodo.final;
+        $('f-categoria').value = '';
+        $('f-tipo').value = '';
+      }
+
+      const filtros = () => ({
+        data_inicial: $('f-inicial').value,
+        data_final: $('f-final').value,
+        categoria_id: $('f-categoria').value,
+        tipo: $('f-tipo').value,
+      });
+
+      function renderizarTabela(lista) {
+        const corpo = $('tbody-despesas');
+        corpo.replaceChildren();
+
+        if (lista.data.length === 0) {
+          const tr = criarEl('tr');
+          const td = criarEl('td', 'py-8 text-center text-slate-500', 'Nenhuma despesa encontrada para o filtro.');
+          td.colSpan = 6;
+          tr.appendChild(td);
+          corpo.appendChild(tr);
+        }
+
+        lista.data.forEach((d) => {
+          const tr = criarEl('tr');
+          const tipo = criarEl('td');
+          tipo.appendChild(criarBadgeTipo(d.tipo));
+
+          const acoes = criarEl('td', 'somente-admin whitespace-nowrap text-right');
+          acoes.append(
+            criarBotaoAcao('edit', 'Editar', 'hover:text-indigo-600', () => abrirFormulario(d)),
+            criarBotaoAcao('trash', 'Excluir', 'hover:text-red-600', () => excluir(d)),
+          );
+
+          tr.append(
+            criarEl('td', 'whitespace-nowrap', formatarData(d.data)),
+            criarEl('td', null, d.descricao),
+            criarEl('td', null, d.categoria_nome),
+            tipo,
+            criarEl('td', 'num', formatarMoeda(d.valor)),
+            acoes,
+          );
+          corpo.appendChild(tr);
+        });
+
+        $('totais').textContent = `Total da página: ${formatarMoeda(lista.total_pagina)} · Total do filtro: ${formatarMoeda(lista.total_despesas)}`;
+
+        const paginacao = $('paginacao');
+        if (lista.total_registros === 0) {
+          paginacao.replaceChildren();
+          return;
+        }
+        renderizarPaginacao(paginacao, {
+          pagina: lista.pagina,
+          totalPaginas: lista.total_paginas,
+          totalRegistros: lista.total_registros,
+        }, (nova) => {
+          pagina = nova;
+          carregarLista();
+        });
+      }
+
+      async function carregarLista() {
+        try {
+          const lista = await apiFetch(`/api/despesas${montarQuery({ ...filtros(), pagina, por_pagina: POR_PAGINA })}`);
+          pagina = lista.pagina;
+          renderizarTabela(lista);
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      async function carregarCategorias() {
+        try {
+          arvore = await apiFetch('/api/categorias');
+          preencherSelectCategorias($('f-categoria'), arvore, { placeholder: 'Todas' });
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      function mostrarErroFormulario(mensagem) {
+        const erro = $('erro-despesa');
+        erro.textContent = mensagem;
+        erro.classList.remove('hidden');
+      }
+
+      // Sem argumento abre a inclusão; com uma despesa, a edição (só descrição e valor).
+      function abrirFormulario(despesa) {
+        editandoId = despesa ? despesa.id : null;
+        $('form-despesa').reset();
+        $('erro-despesa').classList.add('hidden');
+        $('titulo-modal-despesa').textContent = despesa ? 'Editar despesa' : 'Nova despesa';
+        $('aviso-edicao').classList.toggle('hidden', !despesa);
+
+        preencherSelectCategorias($('categoria_id'), arvore, {
+          placeholder: 'Selecione a categoria',
+          selecionado: despesa ? despesa.categoria_id : null,
+        });
+        ['categoria_id', 'tipo', 'data', 'total_parcelas'].forEach((id) => { $(id).disabled = Boolean(despesa); });
+
+        if (despesa) {
+          $('tipo').value = despesa.tipo;
+          $('data').value = despesa.data.slice(0, 10);
+          $('descricao').value = despesa.descricao;
+          $('valor').value = String(Math.round(despesa.valor * 100));
+          mascaraMoeda($('valor'));
+        } else {
+          $('tipo').value = 'PADRAO';
+          $('data').value = hojeISO();
+        }
+
+        atualizarCamposDinamicos();
+        if (despesa) $('total_parcelas').closest('[data-campo]').style.display = 'none';
+        abrirModal('modal-despesa');
+      }
+
+      async function excluir(despesa) {
+        const emLote = despesa.num_parcela != null;
+        const opcao = await escolherAcao({
+          titulo: 'Excluir despesa',
+          mensagem: emLote
+            ? `"${despesa.descricao}" faz parte de um lote (${despesa.num_parcela}). Excluir só esta ou todo o lote?`
+            : `Excluir "${despesa.descricao}"? Esta ação não pode ser desfeita.`,
+          opcoes: emLote
+            ? [
+              { rotulo: 'Só esta', valor: 'individual', classe: 'botao-secundario' },
+              { rotulo: 'Todo o lote', valor: 'grupo', classe: 'botao-perigo' },
+            ]
+            : [{ rotulo: 'Excluir', valor: 'individual', classe: 'botao-perigo' }],
+        });
+        if (!opcao) return;
+
+        try {
+          const query = opcao === 'grupo' ? '?excluir_grupo=true' : '';
+          const resposta = await apiFetch(`/api/despesas/${despesa.id}${query}`, { method: 'DELETE' });
+          mostrarToast(resposta.excluidos > 1 ? `${resposta.excluidos} despesas excluídas.` : 'Despesa excluída.');
+          await carregarLista();
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      function montarCorpo() {
+        const descricao = $('descricao').value.trim();
+        const valor = moedaParaFloat($('valor').value);
+        if (!descricao) throw new Error('Informe a descrição.');
+        if (valor <= 0) throw new Error('Informe um valor maior que zero.');
+
+        if (editandoId) return { id: editandoId, descricao, valor };
+
+        if (!$('categoria_id').value) throw new Error('Selecione a categoria.');
+        if (!$('data').value) throw new Error('Informe a data.');
+
+        const tipo = $('tipo').value;
+        const parcelado = tipo === 'RECORRENTE' || tipo === 'PARCELAMENTO';
+        const parcelas = Number($('total_parcelas').value);
+        if (parcelado && (!Number.isInteger(parcelas) || parcelas < 2 || parcelas > 120)) {
+          throw new Error('Informe o total de parcelas (entre 2 e 120).');
+        }
+
+        return {
+          categoria_id: Number($('categoria_id').value),
+          tipo,
+          descricao,
+          valor,
+          data: $('data').value,
+          total_parcelas: parcelado ? parcelas : 0,
+        };
+      }
+
+      $('btn-incluir').addEventListener('click', () => abrirFormulario());
+
+      $('form-despesa').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        $('erro-despesa').classList.add('hidden');
+
+        let corpo;
+        try {
+          corpo = montarCorpo();
+        } catch (e) {
+          mostrarErroFormulario(e.message);
+          return;
+        }
+
+        const botao = $('btn-salvar');
+        botao.disabled = true;
+        try {
+          const resposta = await apiFetch('/api/despesas', { method: 'POST', body: corpo });
+          fecharModal('modal-despesa');
+          mostrarToast(!editandoId && resposta.length > 1 ? `${resposta.length} despesas criadas.` : 'Despesa salva.');
+          await carregarLista();
+        } catch (e) {
+          mostrarErroFormulario(e.message);
+        } finally {
+          botao.disabled = false;
+        }
+      });
+
+      $('form-filtros').addEventListener('submit', (evento) => {
+        evento.preventDefault();
+        const f = filtros();
+        if (f.data_inicial && f.data_final && f.data_inicial > f.data_final) {
+          mostrarToast('A data inicial não pode ser maior que a data final.', 'erro');
+          return;
+        }
+        pagina = 1;
+        carregarLista();
+      });
+
+      $('btn-limpar').addEventListener('click', () => {
+        aplicarFiltrosPadrao();
+        pagina = 1;
+        carregarLista();
+      });
+
+      aplicarFiltrosPadrao();
+      carregarCategorias().then(carregarLista);
+    });
+  </script>
+</body>
+</html>

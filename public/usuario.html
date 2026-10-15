@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usuários · Registro de Despesas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="app">
+    <div class="mb-6 flex items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-slate-800">Usuários</h1>
+        <p class="mt-1 text-sm text-slate-500">Gerencie quem acessa o sistema e o nível de cada um.</p>
+      </div>
+      <button id="btn-incluir" type="button" class="somente-admin botao botao-primario">+ Incluir</button>
+    </div>
+
+    <section class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Nível</th>
+              <th>Criado em</th>
+              <th class="somente-admin"><span class="sr-only">Ações</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-usuarios"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div id="modal-usuario" data-modal role="dialog" aria-modal="true" aria-labelledby="titulo-modal-usuario"
+         class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
+      <div class="animar-aparecer w-full max-w-md rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 id="titulo-modal-usuario" class="text-lg font-semibold text-slate-800">Novo usuário</h2>
+
+        <form id="form-usuario" class="mt-4 space-y-4" novalidate>
+          <div>
+            <label for="nome" class="rotulo">Nome</label>
+            <input id="nome" type="text" class="campo-input" maxlength="100" autocomplete="off">
+          </div>
+          <div>
+            <label for="email" class="rotulo">E-mail</label>
+            <input id="email" type="email" class="campo-input" autocomplete="off">
+          </div>
+          <div>
+            <label for="nivel" class="rotulo">Nível</label>
+            <select id="nivel" class="campo-input">
+              <option value="READ">READ (somente consulta)</option>
+              <option value="ADMIN">ADMIN (acesso total)</option>
+            </select>
+            <p id="dica-nivel" class="mt-1 hidden text-xs text-slate-500">Você não pode alterar o seu próprio nível.</p>
+          </div>
+          <div>
+            <label for="senha" class="rotulo">Senha</label>
+            <input id="senha" type="password" class="campo-input" autocomplete="new-password">
+            <p id="dica-senha" class="mt-1 hidden text-xs text-slate-500">Deixe em branco para manter a senha atual.</p>
+          </div>
+          <div>
+            <label for="confirmar_senha" class="rotulo">Confirmar senha</label>
+            <input id="confirmar_senha" type="password" class="campo-input" autocomplete="new-password">
+          </div>
+
+          <p id="erro-usuario" role="alert" class="hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+
+          <div class="flex justify-end gap-2">
+            <button type="button" class="botao botao-secundario" data-fechar-modal>Cancelar</button>
+            <button id="btn-salvar" type="submit" class="botao botao-primario">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    // Página restrita a ADMIN (o servidor também responde 403 aos demais).
+    const acessoPermitido = Auth.isCompleto();
+    if (!acessoPermitido) location.replace(`${window.BASE_PATH}/index.html`);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!acessoPermitido) return;
+
+      const $ = (id) => document.getElementById(id);
+      const meuId = Auth.getUserId();
+      let editandoId = null;
+
+      function renderizarTabela(usuarios) {
+        const corpo = $('tbody-usuarios');
+        corpo.replaceChildren();
+
+        if (usuarios.length === 0) {
+          const tr = criarEl('tr');
+          const td = criarEl('td', 'py-8 text-center text-slate-500', 'Nenhum usuário cadastrado.');
+          td.colSpan = 5;
+          tr.appendChild(td);
+          corpo.appendChild(tr);
+        }
+
+        usuarios.forEach((usuario) => {
+          const ehVoce = usuario.id === meuId;
+          const tr = criarEl('tr');
+
+          const celulaNome = criarEl('td', 'font-medium text-slate-800', usuario.nome);
+          if (ehVoce) celulaNome.appendChild(criarEl('span', 'ml-2 text-xs font-normal text-slate-400', '(você)'));
+
+          const celulaNivel = criarEl('td');
+          celulaNivel.appendChild(criarBadgeNivel(usuario.nivel));
+
+          const acoes = criarEl('td', 'somente-admin whitespace-nowrap text-right');
+          acoes.appendChild(criarBotaoAcao('edit', 'Editar', 'hover:text-indigo-600', () => abrirFormulario(usuario)));
+          // Ninguém exclui a própria conta (o servidor também bloqueia).
+          if (!ehVoce) acoes.appendChild(criarBotaoAcao('trash', 'Excluir', 'hover:text-red-600', () => excluir(usuario)));
+
+          tr.append(celulaNome, criarEl('td', null, usuario.email), celulaNivel, criarEl('td', 'whitespace-nowrap', formatarData(usuario.created_at)), acoes);
+          corpo.appendChild(tr);
+        });
+      }
+
+      async function carregar() {
+        try {
+          renderizarTabela(await apiFetch('/api/usuarios'));
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      function mostrarErroFormulario(mensagem) {
+        const erro = $('erro-usuario');
+        erro.textContent = mensagem;
+        erro.classList.remove('hidden');
+      }
+
+      // Sem argumento abre a inclusão; com um usuário, a edição (senha em branco mantém a atual).
+      function abrirFormulario(usuario) {
+        editandoId = usuario ? usuario.id : null;
+        const ehVoce = Boolean(usuario) && usuario.id === meuId;
+
+        $('form-usuario').reset();
+        $('erro-usuario').classList.add('hidden');
+        $('titulo-modal-usuario').textContent = usuario ? 'Editar usuário' : 'Novo usuário';
+        $('nome').value = usuario ? usuario.nome : '';
+        $('email').value = usuario ? usuario.email : '';
+        $('nivel').value = usuario ? usuario.nivel : 'READ';
+        $('nivel').disabled = ehVoce;
+        $('dica-nivel').classList.toggle('hidden', !ehVoce);
+        $('dica-senha').classList.toggle('hidden', !usuario);
+        abrirModal('modal-usuario');
+      }
+
+      async function excluir(usuario) {
+        const confirmado = await confirmarAcao({
+          titulo: 'Excluir usuário',
+          mensagem: `Excluir o usuário "${usuario.nome}" (${usuario.email})? Esta ação não pode ser desfeita.`,
+        });
+        if (!confirmado) return;
+
+        try {
+          await apiFetch(`/api/usuarios/${usuario.id}`, { method: 'DELETE' });
+          mostrarToast('Usuário excluído.');
+          await carregar();
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      function montarCorpo() {
+        const nome = $('nome').value.trim();
+        const email = $('email').value.trim();
+        const senha = $('senha').value;
+        const confirmacao = $('confirmar_senha').value;
+
+        if (!nome) throw new Error('Informe o nome.');
+        if (!email || !$('email').checkValidity()) throw new Error('Informe um e-mail válido.');
+        if (!editandoId && !senha) throw new Error('Informe a senha do novo usuário.');
+        if (senha && [...senha].length < 6) throw new Error('A senha deve ter no mínimo 6 caracteres.');
+        if (senha !== confirmacao) throw new Error('A confirmação da senha não confere.');
+
+        const corpo = { nome, email, nivel: $('nivel').value, senha, confirmar_senha: confirmacao };
+        if (editandoId) corpo.id = editandoId;
+        return corpo;
+      }
+
+      $('btn-incluir').addEventListener('click', () => abrirFormulario());
+
+      $('form-usuario').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        $('erro-usuario').classList.add('hidden');
+
+        let corpo;
+        try {
+          corpo = montarCorpo();
+        } catch (e) {
+          mostrarErroFormulario(e.message);
+          return;
+        }
+
+        const botao = $('btn-salvar');
+        botao.disabled = true;
+        try {
+          await apiFetch('/api/usuarios', { method: 'POST', body: corpo });
+          fecharModal('modal-usuario');
+          mostrarToast('Usuário salvo.');
+          await carregar();
+        } catch (e) {
+          mostrarErroFormulario(e.message);
+        } finally {
+          botao.disabled = false;
+        }
+      });
+
+      carregar();
+    });
+  </script>
+</body>
+</html>

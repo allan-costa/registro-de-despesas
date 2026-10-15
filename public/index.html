@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Registro de Despesas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="app">
+    <div class="mb-6">
+      <h1 class="text-2xl font-semibold text-slate-800">Dashboard</h1>
+      <p class="mt-1 text-sm text-slate-500">Resumo das despesas no período selecionado.</p>
+    </div>
+
+    <form id="form-filtros" class="mb-6 flex flex-col gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
+      <div class="sm:w-48">
+        <label for="data_inicial" class="rotulo">Data inicial</label>
+        <input id="data_inicial" type="date" class="campo-input">
+      </div>
+      <div class="sm:w-48">
+        <label for="data_final" class="rotulo">Data final</label>
+        <input id="data_final" type="date" class="campo-input">
+      </div>
+      <button type="submit" class="botao botao-primario">Filtrar</button>
+    </form>
+
+    <section class="mb-6 grid gap-4 sm:grid-cols-3" aria-label="Totais do período">
+      <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Total no período</p>
+        <p id="card-total" class="mt-2 text-2xl font-semibold text-slate-800">—</p>
+      </div>
+      <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Despesas lançadas</p>
+        <p id="card-qtd" class="mt-2 text-2xl font-semibold text-slate-800">—</p>
+      </div>
+      <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Maior categoria</p>
+        <p id="card-maior-valor" class="mt-2 text-2xl font-semibold text-slate-800">—</p>
+        <p id="card-maior-nome" class="mt-1 truncate text-sm text-slate-500">&nbsp;</p>
+      </div>
+    </section>
+
+    <section class="mb-6 grid gap-6 lg:grid-cols-2">
+      <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <h2 class="text-base font-semibold text-slate-800">Despesa vs Valor</h2>
+        <div class="mt-4" style="position:relative;height:300px;width:100%">
+          <canvas id="grafico-categorias"></canvas>
+          <p id="grafico-vazio" class="absolute inset-0 hidden items-center justify-center text-sm text-slate-500">Sem despesas no período.</p>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-gray-100 bg-white shadow-sm">
+        <h2 class="p-5 pb-3 text-base font-semibold text-slate-800">Despesas por Categoria</h2>
+        <div class="max-h-80 overflow-auto">
+          <table class="tabela">
+            <thead>
+              <tr><th>Categoria</th><th class="num">Valor</th><th class="num">%</th></tr>
+            </thead>
+            <tbody id="tbody-categorias"></tbody>
+            <tfoot id="tfoot-categorias"></tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      <h2 class="p-5 pb-3 text-base font-semibold text-slate-800">Despesas do Período</h2>
+      <div class="overflow-x-auto">
+        <table class="tabela">
+          <thead>
+            <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th class="num">Valor</th></tr>
+          </thead>
+          <tbody id="tbody-periodo"></tbody>
+        </table>
+      </div>
+      <div id="paginacao-periodo" class="flex flex-col items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row"></div>
+    </section>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const POR_PAGINA = 10;
+      const CORES = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#84cc16', '#f97316', '#14b8a6', '#ec4899', '#64748b', '#eab308'];
+      const $ = (id) => document.getElementById(id);
+
+      let grafico = null;
+      let pagina = 1;
+
+      const periodo = periodoPadrao();
+      $('data_inicial').value = periodo.inicial;
+      $('data_final').value = periodo.final;
+
+      const filtros = () => ({ data_inicial: $('data_inicial').value, data_final: $('data_final').value });
+
+      function linhaVazia(colunas, texto) {
+        const tr = criarEl('tr');
+        const td = criarEl('td', 'py-8 text-center text-slate-500', texto);
+        td.colSpan = colunas;
+        tr.appendChild(td);
+        return tr;
+      }
+
+      function renderizarCards(lista, graf) {
+        $('card-total').textContent = formatarMoeda(lista.total_despesas);
+        $('card-qtd').textContent = String(lista.total_registros);
+        const temMaior = graf.valores.length > 0;
+        $('card-maior-valor').textContent = temMaior ? formatarMoeda(graf.valores[0]) : '—';
+        $('card-maior-nome').textContent = temMaior ? graf.labels[0] : '\u00A0';
+      }
+
+      function renderizarGrafico(graf) {
+        const vazio = graf.valores.length === 0;
+        const aviso = $('grafico-vazio');
+        $('grafico-categorias').classList.toggle('hidden', vazio);
+        aviso.classList.toggle('hidden', !vazio);
+        aviso.classList.toggle('flex', vazio);
+
+        if (grafico) {
+          grafico.destroy();
+          grafico = null;
+        }
+        if (vazio) return;
+
+        if (typeof Chart === 'undefined') {
+          $('grafico-categorias').classList.add('hidden');
+          aviso.textContent = 'Não foi possível carregar o gráfico.';
+          aviso.classList.remove('hidden');
+          aviso.classList.add('flex');
+          return;
+        }
+
+        grafico = new Chart($('grafico-categorias'), {
+          type: 'doughnut',
+          data: {
+            labels: graf.labels,
+            datasets: [{
+              label: 'Valor',
+              data: graf.valores,
+              backgroundColor: graf.labels.map((_, i) => CORES[i % CORES.length]),
+              borderColor: '#fff',
+              borderWidth: 2,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { position: 'bottom' },
+              tooltip: { callbacks: { label: (item) => `${item.label}: ${formatarMoeda(item.parsed)}` } },
+            },
+          },
+        });
+      }
+
+      function renderizarCategorias(graf) {
+        const corpo = $('tbody-categorias');
+        const rodape = $('tfoot-categorias');
+        corpo.replaceChildren();
+        rodape.replaceChildren();
+
+        if (graf.valores.length === 0) {
+          corpo.appendChild(linhaVazia(3, 'Nenhuma despesa no período.'));
+          return;
+        }
+
+        const total = graf.valores.reduce((soma, v) => soma + v, 0);
+        const pct = (v) => `${((v / total) * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+
+        graf.labels.forEach((nome, i) => {
+          const tr = criarEl('tr');
+          const celulaNome = criarEl('td');
+          const marcador = criarEl('span', 'mr-2 inline-block h-2.5 w-2.5 rounded-full');
+          marcador.style.backgroundColor = CORES[i % CORES.length];
+          celulaNome.append(marcador, document.createTextNode(nome));
+          tr.append(celulaNome, criarEl('td', 'num', formatarMoeda(graf.valores[i])), criarEl('td', 'num text-slate-500', pct(graf.valores[i])));
+          corpo.appendChild(tr);
+        });
+
+        const totalTr = criarEl('tr', 'font-semibold');
+        totalTr.append(criarEl('td', null, 'Total'), criarEl('td', 'num', formatarMoeda(total)), criarEl('td', 'num', '100,0%'));
+        rodape.appendChild(totalTr);
+      }
+
+      function renderizarPeriodo(lista) {
+        const corpo = $('tbody-periodo');
+        corpo.replaceChildren();
+
+        if (lista.data.length === 0) {
+          corpo.appendChild(linhaVazia(5, 'Nenhuma despesa no período.'));
+        }
+        lista.data.forEach((d) => {
+          const tr = criarEl('tr');
+          const tipo = criarEl('td');
+          tipo.appendChild(criarBadgeTipo(d.tipo));
+          tr.append(
+            criarEl('td', 'whitespace-nowrap', formatarData(d.data)),
+            criarEl('td', null, d.descricao),
+            criarEl('td', null, d.categoria_nome),
+            tipo,
+            criarEl('td', 'num', formatarMoeda(d.valor)),
+          );
+          corpo.appendChild(tr);
+        });
+
+        const paginacao = $('paginacao-periodo');
+        if (lista.total_registros === 0) {
+          paginacao.replaceChildren();
+          return;
+        }
+        renderizarPaginacao(paginacao, {
+          pagina: lista.pagina,
+          totalPaginas: lista.total_paginas,
+          totalRegistros: lista.total_registros,
+        }, async (nova) => {
+          pagina = nova;
+          try {
+            await carregarLista();
+          } catch (e) {
+            mostrarToast(e.message, 'erro');
+          }
+        });
+      }
+
+      async function carregarLista() {
+        const lista = await apiFetch(`/api/despesas${montarQuery({ ...filtros(), pagina, por_pagina: POR_PAGINA })}`);
+        pagina = lista.pagina;
+        renderizarPeriodo(lista);
+        return lista;
+      }
+
+      async function carregarTudo() {
+        const f = filtros();
+        if (f.data_inicial && f.data_final && f.data_inicial > f.data_final) {
+          mostrarToast('A data inicial não pode ser maior que a data final.', 'erro');
+          return;
+        }
+
+        pagina = 1;
+        try {
+          const [lista, graf] = await Promise.all([
+            carregarLista(),
+            apiFetch(`/api/despesas/graficos${montarQuery(f)}`),
+          ]);
+          renderizarCards(lista, graf);
+          renderizarGrafico(graf);
+          renderizarCategorias(graf);
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      $('form-filtros').addEventListener('submit', (evento) => {
+        evento.preventDefault();
+        carregarTudo();
+      });
+
+      carregarTudo();
+    });
+  </script>
+</body>
+</html>

@@ -14,10 +14,12 @@ import (
 )
 
 const (
-	minParcelas  = 2
-	maxParcelas  = 120
-	maxDescricao = 200
-	maxValor     = 9999999999.99 // limite de NUMERIC(12,2)
+	minParcelas     = 2
+	maxParcelas     = 120
+	maxDescricao    = 200
+	maxValor        = 9999999999.99 // limite de NUMERIC(12,2)
+	porPaginaPadrao = 10
+	porPaginaMax    = 100
 )
 
 // Formatos aceitos para data; o primeiro é o oficial (YYYY-MM-DD HH-mm-ss).
@@ -30,6 +32,8 @@ var (
 	ErrTipoInvalido       = errors.New("tipo de despesa inválido")
 	ErrParcelasInvalidas  = errors.New("informe o total de parcelas (entre 2 e 120)")
 	ErrDespesaInexistente = errors.New("despesa não encontrada")
+	ErrFiltroDataInvalida = errors.New("data do filtro inválida; use o formato YYYY-MM-DD")
+	ErrPeriodoInvalido    = errors.New("a data inicial não pode ser maior que a data final")
 )
 
 type DespesaService struct {
@@ -114,12 +118,108 @@ func (s *DespesaService) Excluir(ctx context.Context, id int, grupo bool) (int, 
 	return n, err
 }
 
+// Listar devolve uma página de despesas em ordem cronológica, com a soma da página e a de todo o filtro.
+// Uma página além da última é ajustada para a última (ex.: após excluir o último item dela).
+func (s *DespesaService) Listar(ctx context.Context, q models.DespesaFiltroRequest) (*models.DespesaListResponse, error) {
+	f, err := montarFiltro(q)
+	if err != nil {
+		return nil, err
+	}
+
+	porPagina := q.PorPagina
+	if porPagina < 1 {
+		porPagina = porPaginaPadrao
+	}
+	porPagina = min(porPagina, porPaginaMax)
+
+	total, soma, err := s.repo.Totais(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPaginas := max(1, (total+porPagina-1)/porPagina)
+	pagina := min(max(q.Pagina, 1), totalPaginas)
+	f.Limite, f.Deslocamento = porPagina, (pagina-1)*porPagina
+
+	itens, err := s.repo.Listar(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	var somaPagina float64
+	for _, d := range itens {
+		somaPagina += d.Valor
+	}
+
+	return &models.DespesaListResponse{
+		Data:           itens,
+		Pagina:         pagina,
+		TotalPaginas:   totalPaginas,
+		TotalRegistros: total,
+		TotalPagina:    round2(somaPagina),
+		TotalDespesas:  round2(soma),
+	}, nil
+}
+
+// Graficos devolve o total por categoria no filtro: labels (nomes) e valores (somas) em posições correspondentes.
+func (s *DespesaService) Graficos(ctx context.Context, q models.DespesaFiltroRequest) (*models.GraficoResponse, error) {
+	f, err := montarFiltro(q)
+	if err != nil {
+		return nil, err
+	}
+
+	labels, valores, err := s.repo.TotaisPorCategoria(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	for i := range valores {
+		valores[i] = round2(valores[i])
+	}
+	return &models.GraficoResponse{Labels: labels, Valores: valores}, nil
+}
+
+func montarFiltro(q models.DespesaFiltroRequest) (repository.DespesaFiltro, error) {
+	var f repository.DespesaFiltro
+	var err error
+
+	if f.DataInicial, err = parseDiaFiltro(q.DataInicial); err != nil {
+		return f, err
+	}
+	if f.DataFinal, err = parseDiaFiltro(q.DataFinal); err != nil {
+		return f, err
+	}
+	if f.DataInicial != nil && f.DataFinal != nil && f.DataInicial.After(*f.DataFinal) {
+		return f, ErrPeriodoInvalido
+	}
+
+	if q.CategoriaID > 0 {
+		f.CategoriaID = q.CategoriaID
+	}
+	f.Tipo = q.Tipo
+	return f, nil
+}
+
+func parseDiaFiltro(s string) (*time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil, ErrFiltroDataInvalida
+	}
+	return &t, nil
+}
+
+func round2(v float64) float64 {
+	return math.Round(v*100) / 100
+}
+
 func validarDescricaoValor(descricao string, valor float64) (string, float64, error) {
 	descricao = strings.TrimSpace(descricao)
 	if n := utf8.RuneCountInString(descricao); n == 0 || n > maxDescricao {
 		return "", 0, ErrDescricaoInvalida
 	}
-	valor = math.Round(valor*100) / 100
+	valor = round2(valor)
 	if math.IsNaN(valor) || valor <= 0 || valor > maxValor {
 		return "", 0, ErrValorInvalido
 	}

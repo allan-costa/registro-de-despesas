@@ -71,6 +71,8 @@ func main() {
 	admin.DELETE("/usuarios/:id", usuarioHandler.Excluir)
 
 	despesaHandler := handler.NewDespesaHandler(service.NewDespesaService(repository.NewDespesaRepository(db)))
+	protected.GET("/despesas", despesaHandler.Listar)
+	protected.GET("/despesas/graficos", despesaHandler.Graficos)
 	admin.POST("/despesas", despesaHandler.Salvar)
 	admin.DELETE("/despesas/:id", despesaHandler.Excluir)
 

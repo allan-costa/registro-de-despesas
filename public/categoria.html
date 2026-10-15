@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Categorias · Registro de Despesas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="app">
+    <div class="mb-6 flex items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-slate-800">Categorias</h1>
+        <p class="mt-1 text-sm text-slate-500">Organize as despesas em grupos e subgrupos.</p>
+      </div>
+      <button id="btn-incluir" type="button" class="somente-admin botao botao-primario">+ Incluir</button>
+    </div>
+
+    <div class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div id="arvore"></div>
+    </div>
+
+    <div id="modal-categoria" data-modal role="dialog" aria-modal="true" aria-labelledby="titulo-modal-categoria"
+         class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 p-4">
+      <div class="animar-aparecer w-full max-w-md rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 id="titulo-modal-categoria" class="text-lg font-semibold text-slate-800">Nova categoria</h2>
+
+        <form id="form-categoria" class="mt-4 space-y-4" novalidate>
+          <div>
+            <label for="nome" class="rotulo">Nome</label>
+            <input id="nome" type="text" class="campo-input uppercase" maxlength="100" autocomplete="off" required>
+          </div>
+          <div>
+            <label for="parent_id" class="rotulo">Grupo pai</label>
+            <select id="parent_id" class="campo-input"></select>
+          </div>
+
+          <p id="erro-categoria" role="alert" class="hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+
+          <div class="flex justify-end gap-2">
+            <button type="button" class="botao botao-secundario" data-fechar-modal>Cancelar</button>
+            <button id="btn-salvar" type="submit" class="botao botao-primario">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const $ = (id) => document.getElementById(id);
+
+      let arvore = [];
+      let editandoId = null;
+
+      async function carregar() {
+        try {
+          arvore = await apiFetch('/api/categorias');
+          renderizarArvoreCategorias($('arvore'), arvore, { onEditar: abrirFormulario, onExcluir: excluir });
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      // Sem argumento abre o formulário de nova categoria; com uma categoria, o de edição.
+      function abrirFormulario(categoria) {
+        editandoId = categoria ? categoria.id : null;
+        $('titulo-modal-categoria').textContent = categoria ? 'Editar categoria' : 'Nova categoria';
+        $('nome').value = categoria ? categoria.nome : '';
+        $('erro-categoria').classList.add('hidden');
+        preencherSelectCategorias($('parent_id'), arvore, {
+          placeholder: 'Nenhum (categoria raiz)',
+          selecionado: categoria ? categoria.parent_id : null,
+          ignorarId: categoria ? categoria.id : null,
+        });
+        abrirModal('modal-categoria');
+      }
+
+      function mostrarErroFormulario(mensagem) {
+        const erro = $('erro-categoria');
+        erro.textContent = mensagem;
+        erro.classList.remove('hidden');
+      }
+
+      async function excluir(categoria) {
+        const comFilhas = categoria.filhos && categoria.filhos.length > 0;
+        const confirmado = await confirmarAcao({
+          titulo: 'Excluir categoria',
+          mensagem: `Excluir "${categoria.nome}"${comFilhas ? ' e todas as suas subcategorias' : ''}? Esta ação não pode ser desfeita.`,
+        });
+        if (!confirmado) return;
+
+        try {
+          await apiFetch(`/api/categorias/${categoria.id}`, { method: 'DELETE' });
+          mostrarToast('Categoria excluída.');
+          await carregar();
+        } catch (e) {
+          mostrarToast(e.message, 'erro');
+        }
+      }
+
+      $('btn-incluir').addEventListener('click', () => abrirFormulario());
+
+      $('form-categoria').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        $('erro-categoria').classList.add('hidden');
+
+        const nome = $('nome').value.trim();
+        if (!nome) {
+          mostrarErroFormulario('Informe o nome da categoria.');
+          return;
+        }
+
+        const corpo = { nome, parent_id: $('parent_id').value ? Number($('parent_id').value) : null };
+        if (editandoId) corpo.id = editandoId;
+
+        const botao = $('btn-salvar');
+        botao.disabled = true;
+        try {
+          await apiFetch('/api/categorias', { method: 'POST', body: corpo });
+          fecharModal('modal-categoria');
+          mostrarToast('Categoria salva.');
+          await carregar();
+        } catch (e) {
+          mostrarErroFormulario(e.message);
+        } finally {
+          botao.disabled = false;
+        }
+      });
+
+      carregar();
+    });
+  </script>
+</body>
+</html>
