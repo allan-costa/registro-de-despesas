@@ -28,16 +28,16 @@ id 		SERIAL PRIMARY KEY,
 parent_id   	INT NULL DEFAULT NULL,
 nome       	VARCHAR NOT NULL,
 created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-CONSTRAINT fk_categoria_parent FOREIGN KEY (parent_id) REFERENCES categoria(id) ON DELETE CASCADE
+CONSTRAINT fk_categoria_parent FOREIGN KEY (parent_id) REFERENCES comum.categoria(id) ON DELETE CASCADE
 );
 
 -- 3. Tabela de Despesas
 CREATE TABLE IF NOT EXISTS comum.despesa (
     id              	SERIAL PRIMARY KEY,
     id_categoria    	INT4 NOT null references comum.categoria(id),
-    tipo		tipo_despesa not null default,
+    tipo		tipo_despesa not null default 'PADRAO',
     descricao       	VARCHAR NOT NULL,
-    valor	    	DECIMAL(12,2) NOT NULL,
+    valor	    		DECIMAL(12,2) NOT NULL,
     data		TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     num_parcela 	VARCHAR(20) NULL DEFAULT NULL,
     created_at      	TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
