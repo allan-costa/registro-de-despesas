@@ -101,12 +101,14 @@ type UsuarioRequest struct {
 
 // --- Despesas ---
 
+// DespesaRequest: com ID presente edita apenas descricao e valor; sem ID cria (os demais campos são validados no service).
 type DespesaRequest struct {
-	CategoriaID   int     `json:"categoria_id" binding:"required"`
+	ID            *int    `json:"id"`
+	CategoriaID   int     `json:"categoria_id"`
 	Descricao     string  `json:"descricao" binding:"required"`
 	Valor         float64 `json:"valor" binding:"required,gt=0"`
-	Data          string  `json:"data" binding:"required"` // YYYY-MM-DD HH-mm-ss
-	Tipo          string  `json:"tipo" binding:"required,oneof=PADRAO EVENTUAL RECORRENTE PARCELAMENTO"`
+	Data          string  `json:"data"` // YYYY-MM-DD HH-mm-ss
+	Tipo          string  `json:"tipo" binding:"omitempty,oneof=PADRAO EVENTUAL RECORRENTE PARCELAMENTO"`
 	TotalParcelas int     `json:"total_parcelas"`
 }
 

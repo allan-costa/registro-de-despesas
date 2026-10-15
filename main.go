@@ -70,6 +70,10 @@ func main() {
 	admin.POST("/usuarios", usuarioHandler.Salvar)
 	admin.DELETE("/usuarios/:id", usuarioHandler.Excluir)
 
+	despesaHandler := handler.NewDespesaHandler(service.NewDespesaService(repository.NewDespesaRepository(db)))
+	admin.POST("/despesas", despesaHandler.Salvar)
+	admin.DELETE("/despesas/:id", despesaHandler.Excluir)
+
 	r.Static("/css", "./public/css")
 	r.Static("/js", "./public/js")
 	for _, page := range []string{"login", "index", "categoria", "despesa", "usuario"} {
