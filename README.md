@@ -1,10 +1,13 @@
-# Laboratório Introdutório: Construindo um Mini-projeto com Inteligência Artificial Generativa
+# MVP Sistema de Registro de Despesas com Inteligência Artificial Generativa
 
-## Desenvolvimento de um projeto MVP usando IA Generativa com a ferramenta Copilot com os modelos GPT-6 Luna e Cloud Sonnet 5.5
+# Objetivo
+
+- Permitir que os usuários registrem despesas realizadas, informando o valor, a data, o tipo (como alimentação ou transporte) e a categoria. O registro representa uma despesa já incorrida, mesmo que ainda não tenha sido paga.
+- Sistema criado com auxilio da ferramenta **Copilot (modelos GPT-6 Luna e Cloud Sonnet 5.5)**
 
 ## Stack
 
-- **Sistema operacional:** GNU/Linux, documentado para Debian 13 ou derivados.
+- **Sistema operacional:** GNU/Linux, documentado para Debian 13 e Ubuntu 22.04.
 - **Backend:** Go 1.26.0 ou superior, Gin v1.9 e PostgreSQL usando `database/sql` e `lib/pq` (sem ORM).
 - **Autenticação:** JWT v5 e bcrypt (`golang-jwt/jwt/v5`, `golang.org/x/crypto`).
 - **Frontend:** HTML5, Tailwind CSS via CDN, Chart.js via CDN e JavaScript ES6.
@@ -58,3 +61,12 @@ A aplicação lê variáveis de ambiente ou, opcionalmente, um arquivo `.env` na
 4. Baixe as dependências: `go mod download`.
 5. Inicie a aplicação na raiz do projeto: `go run .`.
 6. Acesse [http://localhost:5000/login.html](http://localhost:5000/login.html).
+
+
+## Autenticação
+
+A autenticação é feita através do token JWT. Para gerar um token, você precisa fornecer um usuário e uma senha. O usuário inicial é `admin@admin.com` e a senha é `123456`.
+
+## Licença
+
+GNU General Public License v3.0 (GPL-3.0). Você pode usar, estudar, modificar e redistribuir este projeto, inclusive versões modificadas, desde que mantenha a mesma licença e disponibilize o código-fonte correspondente. O projeto é fornecido sem garantia.
