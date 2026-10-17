@@ -7,7 +7,7 @@
 
 ## Stack
 
-- **Sistema operacional:** GNU/Linux, documentado para Debian 13 e Ubuntu 22.04.
+- **Sistema operacional:** GNU/Linux, documentado para Debian 13.
 - **Backend:** Go 1.26.0 ou superior, Gin v1.9 e PostgreSQL usando `database/sql` e `lib/pq` (sem ORM).
 - **Autenticação:** JWT v5 e bcrypt (`golang-jwt/jwt/v5`, `golang.org/x/crypto`).
 - **Frontend:** HTML5, Tailwind CSS via CDN, Chart.js via CDN e JavaScript ES6.
