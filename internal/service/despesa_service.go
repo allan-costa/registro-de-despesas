@@ -37,10 +37,19 @@ var (
 )
 
 type DespesaService struct {
-	repo *repository.DespesaRepository
+	repo DespesaRepository
 }
 
-func NewDespesaService(repo *repository.DespesaRepository) *DespesaService {
+type DespesaRepository interface {
+	CreateBatch(context.Context, []models.Despesa) ([]models.Despesa, error)
+	UpdateDescricaoValor(context.Context, int, string, float64) (*models.Despesa, error)
+	Delete(context.Context, int, bool) (int, error)
+	Totais(context.Context, repository.DespesaFiltro) (int, float64, error)
+	Listar(context.Context, repository.DespesaFiltro) ([]models.Despesa, error)
+	TotaisPorCategoria(context.Context, repository.DespesaFiltro) ([]string, []float64, error)
+}
+
+func NewDespesaService(repo DespesaRepository) *DespesaService {
 	return &DespesaService{repo: repo}
 }
 

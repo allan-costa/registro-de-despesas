@@ -53,6 +53,8 @@ A aplicação lê variáveis de ambiente ou, opcionalmente, um arquivo `.env` na
 | `SERVER_PORT` | `5000` | Porta HTTP da aplicação. |
 | `CORS_ORIGIN` | `*` | Origem permitida para requisições CORS. |
 
+O arquivo `.env` incluído no projeto contém apenas configurações não sensíveis. Não armazene nele senhas, tokens ou segredos reais; em produção, forneça esses valores por variáveis de ambiente ou por um gerenciador de segredos. Se `JWT_SECRET` não for definido, um valor aleatório é gerado a cada inicialização.
+
 ## Execução local
 
 1. Crie o banco de dados: `createdb -U postgres registro_despesas`.
@@ -62,6 +64,26 @@ A aplicação lê variáveis de ambiente ou, opcionalmente, um arquivo `.env` na
 5. Inicie a aplicação na raiz do projeto: `go run .`.
 6. Acesse [http://localhost:5000/login.html](http://localhost:5000/login.html).
 
+## Testes unitários
+
+Os testes dos serviços de categorias, usuários e despesas usam repositórios em memória e não precisam de conexão com o PostgreSQL. Execute-os com:
+
+```sh
+go test ./internal/service -v
+```
+
+| Operação/cenário | Resultado esperado | Resultado obtido |
+| --- | --- | --- |
+| Categorias: cadastro, consulta, edição e exclusão | Normalizar e criar uma categoria, listá-la, editar seu nome e removê-la. | Passou: cada operação retornou o estado esperado. |
+| Categorias: hierarquia e entradas inválidas | Listar `CONTAS` como filha de `CASA`; rejeitar nome vazio, pai inexistente, ciclo e edição de categoria inexistente. | Passou: hierarquia e quatro erros corresponderam ao esperado. |
+| Categorias: exclusão inválida | Traduzir categoria inexistente e categoria vinculada a despesas para erros específicos. | Passou: os dois erros corresponderam ao esperado. |
+| Usuários: cadastro, consulta, edição e exclusão | Normalizar nome e e-mail, armazenar senha como hash bcrypt, listar, editar sem trocar a senha quando ela não é informada e excluir. | Passou: operações e preservação do hash corresponderam ao esperado. |
+| Usuários: entradas inválidas e proteção da conta | Rejeitar nome vazio, senha ausente/curta, confirmação divergente, e-mail duplicado, autorrebaixamento e autoexclusão. | Passou: os erros esperados foram retornados. |
+| Despesas: cadastro, consulta, edição e exclusão | Criar e listar despesa, calcular total, editar descrição e valor e excluir o registro. | Passou: operações e total corresponderam ao esperado. |
+| Despesas: parcelamento | Gerar duas parcelas numeradas e ajustar a data de 31/01 para 28/02 em fevereiro. | Passou: parcelas, numeração e datas corresponderam ao esperado. |
+| Despesas: entradas inválidas e registro inexistente | Rejeitar descrição vazia, valor zero, categoria inválida, data/tipo inválidos e número de parcelas fora do limite; mapear edição/exclusão inexistentes. | Passou: os erros esperados foram retornados. |
+
+Resultado da execução: todos os testes e subtestes passaram (`PASS`, pacote `internal/service`).
 
 ## Autenticação
 
