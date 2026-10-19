@@ -22,10 +22,18 @@ var (
 )
 
 type UsuarioService struct {
-	repo *repository.UsuarioRepository
+	repo UsuarioRepository
 }
 
-func NewUsuarioService(repo *repository.UsuarioRepository) *UsuarioService {
+type UsuarioRepository interface {
+	ListAll(context.Context) ([]*models.Usuario, error)
+	EmailExists(context.Context, string, int) (bool, error)
+	Create(context.Context, string, string, string, string) (*models.Usuario, error)
+	Update(context.Context, int, string, string, string, *string) (*models.Usuario, error)
+	Delete(context.Context, int) error
+}
+
+func NewUsuarioService(repo UsuarioRepository) *UsuarioService {
 	return &UsuarioService{repo: repo}
 }
 

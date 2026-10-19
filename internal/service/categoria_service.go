@@ -18,10 +18,19 @@ var (
 )
 
 type CategoriaService struct {
-	repo *repository.CategoriaRepository
+	repo CategoriaRepository
 }
 
-func NewCategoriaService(repo *repository.CategoriaRepository) *CategoriaService {
+type CategoriaRepository interface {
+	ListAll(context.Context) ([]*models.Categoria, error)
+	FindByID(context.Context, int) (*models.Categoria, error)
+	IsAncestorOrSelf(context.Context, int, int) (bool, error)
+	Create(context.Context, string, *int) (*models.Categoria, error)
+	Update(context.Context, int, string, *int) (*models.Categoria, error)
+	Delete(context.Context, int) error
+}
+
+func NewCategoriaService(repo CategoriaRepository) *CategoriaService {
 	return &CategoriaService{repo: repo}
 }
 
